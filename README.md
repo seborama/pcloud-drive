@@ -1,6 +1,6 @@
 # pCloud Drive
 
-A client app to mount pCloud drive on Linux and FreeBSD for the rest of us who have been forgotten...
+A client app to mount a pCloud drive on Linux and FreeBSD, for the rest of us who have been forgotten...
 
 It uses FUSE to mount the pCloud drive. This is possible thanks to [Bazil](https://github.com/bazil) and his [FUSE library for Go](https://github.com/bazil/fuse).
 
@@ -23,10 +23,12 @@ The drive can be mounted via the CLI:
 # export PCLOUD_USERNAME=xxx
 # export PCLOUD_PASSWORD=xxx
 # export PCLOUD_OTP_CODE=xxx
+# replace <mount-point> with a directory that already exists.
 pcloud-drive --mount-point <mount-point>
 
 # when you're done:
-umount /tmp/pcloud_mnt
+# replace <mount-point> with a directory that already exists.
+umount <mount-point>
 ```
 
 Should the client end abruptly, or time out, run `umount <mount-point>` to clean up the mount.
@@ -47,6 +49,8 @@ TFA was possible thanks to [Glib Dzevo](https://github.com/gdzevo) and his [cons
 ```bash
 cd fuse
 go test -v ./
+
+mkdir /tmp/pcloud_mnt
 
 # in a separate terminal window:
 ls /tmp/pcloud_mnt
