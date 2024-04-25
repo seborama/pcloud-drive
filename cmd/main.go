@@ -2,12 +2,20 @@ package main
 
 import (
 	"log"
+	"log/slog"
 	"os"
 
 	"github.com/urfave/cli/v2"
 )
 
 func main() {
+	slog.SetDefault(slog.New(slog.NewJSONHandler(
+		os.Stdout,
+		&slog.HandlerOptions{
+			Level: slog.LevelInfo,
+		},
+	)))
+
 	app := &cli.App{
 		Flags: []cli.Flag{
 			&cli.StringFlag{

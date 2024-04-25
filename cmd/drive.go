@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -28,7 +28,7 @@ func drive(c *ucli.Context) error {
 
 	pCloudClient := sdk.NewClient(sdkHTTPClient)
 
-	log.Println("Logging into pCloud")
+	slog.Info("logging into pCloud")
 	err := pCloudClient.Login(
 		ctx,
 		c.String("pcloud-otp-code"),
@@ -39,7 +39,7 @@ func drive(c *ucli.Context) error {
 		return err
 	}
 
-	log.Println("Creating drive")
+	slog.Info("creating drive")
 	drive, err := fuse.NewDrive(
 		c.String("mount-point"),
 		pCloudClient,
@@ -49,7 +49,7 @@ func drive(c *ucli.Context) error {
 	}
 	defer func() { _ = drive.Unmount() }()
 
-	log.Println("Mouting FS at", c.String("mount-point"))
+	slog.Info("mouting FS", "location", c.String("mount-point"))
 	err = drive.Mount()
 	if err != nil {
 		panic(err)

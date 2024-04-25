@@ -2,9 +2,13 @@ package fuse
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"os/user"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"syscall"
 	"time"
@@ -36,7 +40,7 @@ func NewDrive(mountpoint string, pcClient *sdk.Client) (*Drive, error) {
 		return nil, err
 	}
 
-	log.Println(conn.Features().String())
+	slog.Info("fuse connection", "features", conn.Features().String(), "caller", trace())
 
 	user, err := user.Current()
 	if err != nil {
@@ -90,7 +94,7 @@ var (
 )
 
 func (fs *FS) Root() (fs.Node, error) {
-	log.Println("Root called")
+	slog.Info("called")
 
 	rootDir := &Dir{
 		Type: fuse.DT_Dir,
@@ -134,7 +138,6 @@ func (d *Dir) Attr(ctx context.Context, a *fuse.Attr) error {
 	return nil
 }
 
-// TODO: add support for . and ..
 func (d *Dir) materialiseFolder(ctx context.Context) error {
 	fsList, err := d.fs.pcClient.ListFolder(ctx, sdk.T1FolderByID(d.folderID), false, false, false, false)
 	if err != nil {
@@ -212,16 +215,19 @@ func (d *Dir) materialiseFolder(ctx context.Context) error {
 //
 // Lookup need not to handle the names "." and "..".
 func (d *Dir) Lookup(ctx context.Context, name string) (fs.Node, error) {
-	log.Println("Dir.Lookup called on dir folderID:", d.folderID, "entries count:", len(d.Entries), "- with name:", name)
-	// TODO: this test is likely incorrect: we should always list entries in case the folder has changed
-	// TODO: ...at the very least, we should combine it with a TTL or simply rely on the fuse driver to manage that for us.
-	if len(d.Entries) == 0 {
-		// TODO: we can do better here: all this function wants is to get a single entry, not everything
-		d.materialiseFolder(ctx)
+	log.Println("Dir.Lookup called - dir folderID:", d.folderID, "entries count:", len(d.Entries), "- with name:", name)
+
+	if node, ok := d.Entries[name]; ok {
+		return node.(fs.Node), nil
 	}
 
-	node, ok := d.Entries[name]
-	if ok {
+	// materialise the folder and try again
+	if err := d.materialiseFolder(ctx); err != nil {
+		return nil, err
+	}
+
+	log.Println("Dir.Lookup        - dir folderID:", d.folderID, "refreshing content")
+	if node, ok := d.Entries[name]; ok {
 		return node.(fs.Node), nil
 	}
 
@@ -230,7 +236,10 @@ func (d *Dir) Lookup(ctx context.Context, name string) (fs.Node, error) {
 
 func (d *Dir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 	log.Println("Dir.ReadDirAll called - folderID:", d.folderID, "-", "parentFolderID:", d.parentFolderID)
-	d.materialiseFolder(ctx) // TODO: this should not be required here
+
+	if err := d.materialiseFolder(ctx); err != nil {
+		return nil, err
+	}
 
 	dirEntries := lo.MapToSlice(d.Entries, func(key string, value interface{}) fuse.Dirent {
 		switch castEntry := value.(type) {
@@ -275,14 +284,13 @@ type File struct {
 // ensure interfaces conpliance
 var (
 	_ = (fs.Node)((*File)(nil))
-	// _ = (fs.HandleWriter)((*File)(nil))
 	// _ = (fs.HandleReadAller)((*File)(nil)) // NOTE: it's best avoiding to implement this method to avoid costly memory operations with large files.
 	_ = (fs.HandleReader)((*File)(nil))
 	_ = (fs.NodeOpener)((*File)(nil))
 	_ = (fs.HandleFlusher)((*File)(nil))
 	_ = (fs.HandleReleaser)((*File)(nil))
+	// _ = (fs.HandleWriter)((*File)(nil))
 	// _ = (fs.NodeSetattrer)((*File)(nil))
-	// _ = (EntryGetter)((*File)(nil))
 )
 
 func (f *File) Attr(ctx context.Context, a *fuse.Attr) error {
@@ -297,11 +305,6 @@ type fileHandle struct {
 
 func (f *File) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.OpenResponse) (fs.Handle, error) {
 	log.Println("File.Open - 1 - req.ID:", req.ID, "- resp.Handle:", resp.Handle)
-
-	// TODO: this is temporary - for now, let's focus on a read-only implementation
-	if !req.Flags.IsReadOnly() {
-		return nil, fuse.Errno(syscall.EACCES)
-	}
 
 	file, err := f.fs.pcClient.FileOpen(ctx, 0, sdk.T4FileByID(f.fileID))
 	if err != nil {
@@ -327,6 +330,7 @@ func (f *File) Read(ctx context.Context, req *fuse.ReadRequest, resp *fuse.ReadR
 	if f.file != nil {
 		log.Println("File.Read        (", req.ID, ") - FD:", f.file.FD)
 	}
+
 	if f.file == nil {
 		log.Println("File.Read        (", req.ID, ") - no existing FD")
 		file, err := f.fs.pcClient.FileOpen(ctx, 0, sdk.T4FileByID(f.fileID))
@@ -349,11 +353,13 @@ func (f *File) Read(ctx context.Context, req *fuse.ReadRequest, resp *fuse.ReadR
 // Because there can be multiple file descriptors referring to a
 // single opened file, Flush can be called multiple times.
 func (f *File) Flush(ctx context.Context, req *fuse.FlushRequest) error {
-	log.Println("File.Flush called (", req.ID, ") - req.ID:", req.ID, "- req.Handle:", req.Handle)
-	if f.file != nil {
-		log.Println("File.Flush        (", req.ID, ") - FD:", f.file.FD)
+	log.Printf("File.Flush - (%s) - called with req: %+#v", req.ID, req)
+	if f.file == nil {
+		log.Printf("File.Flush - (%s) - FD: nil", req.ID)
 	}
+
 	if f.file != nil {
+		log.Printf("File.Flush - (%s) - FD: %d", req.ID, f.file.FD)
 		err := f.fs.pcClient.FileClose(ctx, f.file.FD)
 		f.file = nil
 		return err
@@ -364,13 +370,25 @@ func (f *File) Flush(ctx context.Context, req *fuse.FlushRequest) error {
 
 // A ReleaseRequest asks to release (close) an open file handle.
 func (f *File) Release(ctx context.Context, req *fuse.ReleaseRequest) error {
-	log.Println("File.Flush called (", req.ID, ") - req.ID:", req.ID, "- req.Handle:", req.Handle)
+	log.Printf("File.Release - (%s) - called with req: %+#v", req.ID, req)
+	if f.file == nil {
+		log.Printf("File.Release - (%s) - FD: nil", req.ID)
+	}
+
 	if f.file != nil {
-		log.Println("File.Flush        (", req.ID, ") - FD:", f.file.FD)
+		log.Printf("File.Release - (%s) - FD: %d", req.ID, f.file.FD)
 		err := f.fs.pcClient.FileClose(ctx, f.file.FD)
 		f.file = nil
 		return err
 	}
 
 	return nil
+}
+
+func trace() string {
+	pc := make([]uintptr, 10) // at least 1 entry needed
+	runtime.Callers(2, pc)
+	f := runtime.FuncForPC(pc[0])
+	_, line := f.FileLine(pc[0])
+	return fmt.Sprintf("%s:%d", filepath.Base(f.Name()), line)
 }
