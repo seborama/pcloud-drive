@@ -9,7 +9,7 @@ import (
 	ucli "github.com/urfave/cli/v2"
 
 	"github.com/seborama/pcloud-drive/v1/fuse"
-	"github.com/seborama/pcloud/sdk"
+	"github.com/seborama/pcloud-sdk/sdk"
 )
 
 func drive(c *ucli.Context) error {
@@ -42,6 +42,7 @@ func drive(c *ucli.Context) error {
 	slog.Info("creating drive")
 	drive, err := fuse.NewDrive(
 		c.String("mount-point"),
+		c.Bool("read-write"),
 		pCloudClient,
 	)
 	if err != nil {
@@ -49,7 +50,7 @@ func drive(c *ucli.Context) error {
 	}
 	defer func() { _ = drive.Unmount() }()
 
-	slog.Info("mouting FS", "location", c.String("mount-point"))
+	slog.Info("mouting FS", "location", c.String("mount-point"), "read-write", c.Bool("read-write"))
 	err = drive.Mount()
 	if err != nil {
 		panic(err)

@@ -2,19 +2,14 @@ package main
 
 import (
 	"log"
-	"log/slog"
 	"os"
 
+	"github.com/seborama/pcloud-drive/v1/logger"
 	"github.com/urfave/cli/v2"
 )
 
 func main() {
-	slog.SetDefault(slog.New(slog.NewJSONHandler(
-		os.Stdout,
-		&slog.HandlerOptions{
-			Level: slog.LevelInfo,
-		},
-	)))
+	logger.LoggerSetup()
 
 	app := &cli.App{
 		Flags: []cli.Flag{
@@ -48,6 +43,11 @@ func main() {
 						Name:     "mount-point",
 						Usage:    "Location of mount point",
 						Required: true,
+					},
+					&cli.BoolFlag{
+						Name:     "read-write",
+						Usage:    "Mount drive in read-write mode (default is read-only)",
+						Required: false,
 					},
 				},
 			},

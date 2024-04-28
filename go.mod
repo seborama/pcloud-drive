@@ -5,7 +5,7 @@ go 1.22.2
 require (
 	bazil.org/fuse v0.0.0-20230120002735-62a210ff1fd5
 	github.com/samber/lo v1.39.0
-	github.com/seborama/pcloud v0.10.0
+	github.com/seborama/pcloud-sdk v0.11.0
 	github.com/stretchr/testify v1.9.0
 	github.com/urfave/cli/v2 v2.27.1
 )
