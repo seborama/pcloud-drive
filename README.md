@@ -12,9 +12,11 @@ I am developing on a Linux ARM Raspberry Pi4. I haven't (yet) tried Linux x86_64
 
 The drive is theoretically fully functional, read and write. Attributes are also supported although, of course, pCloud applies its own cloud model for ownership and permissions.
 
-What this lacks is sufficient hindsight and use to flesh out bugs and performance issues.
+What this currently lacks is sufficient hindsight and large scale use to flesh out bugs and performance issues. And also, I need to start writing tests........
 
-This means that **`read`** should be considered **BETA** and **`write`** should be considered **EXPERIMENTAL**.
+This means that **`read` operations** should be considered **BETA** and **`write` operations** should be considered **EXPERIMENTAL**.
+
+To reduce the risk of accidental damage, write operations are **disabled by default**. You need to specify the CLI argument **`--read-write`** to enable them (at your own risk of course).
 
 ## Getting started
 
