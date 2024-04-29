@@ -1,20 +1,24 @@
 # pCloud Drive
 
-A client app to mount a pCloud drive on Linux and FreeBSD, for the rest of us who have been forgotten...
+A client app to mount a pCloud drive on Linux, for the rest of us who have been forgotten...
 
 It uses FUSE to mount the pCloud drive. This is possible thanks to [Bazil](https://github.com/bazil) and his [FUSE library for Go](https://github.com/bazil/fuse).
 
-I am developing on a Linux ARM Raspberry Pi4. I haven't (yet) tried Linux x86_64 or FreeBSD, it simply is too early at this stage of the development to worry about more than one platform. It should work though.
+pCloud integration is leveraged from [seborama/pcloud-sdk](https://github.com/seborama/pcloud-sdk)
+
+I am developing on a Linux ARM Raspberry Pi4. I haven't (yet) tried Linux x86_64, it is too early at this stage of the development to worry about more than one platform. It should work the same though.
 
 ## Status
 
-At this stage, this is exploratory. The code base is experimental, many features are not implemented or only partially or not accurately.
+The drive is theoretically fully functional, read and write. Attributes are also supported although, of course, pCloud applies its own cloud model for ownership and permissions.
 
-No write operations are supported for now.
+What this lacks is sufficient hindsight and use to flesh out bugs and performance issues.
+
+This means that **`read`** should be considered **BETA** and **`write`** should be considered **EXPERIMENTAL**.
 
 ## Getting started
 
-Download the binary for your platform from the releases.
+Download the binary for your platform from the releases, if available, or build it yourself.
 
 The drive can be mounted via the CLI:
 
@@ -42,9 +46,7 @@ The tests rely on the presence of environment variables to supply your credentia
 
 **Note**
 
-The device is automatically marked as trusted so TFA is only required the first time, until the trust expires. You can remove the trust manually in your [account security settings](https://my.pcloud.com/#page=settings&settings=tab-security).
-
-TFA was possible thanks to [Glib Dzevo](https://github.com/gdzevo) and his [console-client PR](https://github.com/pcloudcom/console-client/pull/94) where I found the info I needed!
+The device is automatically marked as trusted by pCloud, so TFA is only required the first time, until the trust expires. You can remove the trust manually in your [account security settings](https://my.pcloud.com/#page=settings&settings=tab-security).
 
 ```bash
 cd fuse

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	pfuse "github.com/seborama/pcloud-drive/v1/fuse"
-	"github.com/seborama/pcloud/sdk"
+	"github.com/seborama/pcloud-sdk/sdk"
 	"github.com/stretchr/testify/require"
 )
 
@@ -20,6 +20,7 @@ func Test(t *testing.T) {
 
 	drive, err := pfuse.NewDrive(
 		mountpoint,
+		true,
 		pcClient,
 	)
 	if err != nil {
