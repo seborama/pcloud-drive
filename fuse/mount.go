@@ -18,6 +18,9 @@ import (
 	"github.com/seborama/pcloud-sdk/sdk"
 )
 
+// TODO/NOTE: operations that change the state of nodes should reflect that state change in
+// Dir.Entries - eg: create / delete Dir / File, rename, move, etc
+
 type Drive struct {
 	fs   fs.FS
 	conn *fuse.Conn // TODO: define an interface
@@ -128,10 +131,10 @@ type Dir struct {
 // ensure interfaces conpliance
 var (
 	_ fs.Node               = (*Dir)(nil)
-	_ fs.NodeStringLookuper = (*Dir)(nil)
-	_ fs.HandleReadDirAller = (*Dir)(nil)
 	_ fs.NodeCreater        = (*Dir)(nil)
 	_ fs.NodeRemover        = (*Dir)(nil)
+	_ fs.NodeStringLookuper = (*Dir)(nil)
+	_ fs.HandleReadDirAller = (*Dir)(nil)
 )
 
 func (d *Dir) Attr(ctx context.Context, a *fuse.Attr) error {
@@ -288,6 +291,7 @@ func (d *Dir) Create(ctx context.Context, req *fuse.CreateRequest, resp *fuse.Cr
 		logger.Errorf("FileOpen failed", "folderID", d.folderID, "req.Name", req.Name, "error", err)
 		return nil, nil, err
 	}
+
 	if err = d.fs.pcClient.FileClose(ctx, pcFile.FD); err != nil {
 		// FileCreate returns an FD so we close it to avoid a leak.
 		// TODO: instead, we could store this in the File structure to re-use it, if that's safe...
@@ -316,6 +320,8 @@ func (d *Dir) Create(ctx context.Context, req *fuse.CreateRequest, resp *fuse.Cr
 		fileID: pcFile.FileID,
 		file:   nil,
 	}
+
+	d.Entries[req.Name] = file
 
 	return file, file, nil
 }
@@ -435,14 +441,6 @@ func (f *File) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.OpenR
 	f.file = file
 	resp.Flags |= fuse.OpenKeepCache
 
-	// TODO: this may be safer but causes delay for the file size to be reflected after a write.
-	// return &File{
-	// 	Type:       f.Type,
-	// 	Attributes: f.Attributes,
-	// 	fs:         f.fs,
-	// 	fileID:     f.fileID,
-	// 	file:       file,
-	// }, nil
 	// TODO: is this thread safe? Should we add a lock?
 	return f, nil
 }
